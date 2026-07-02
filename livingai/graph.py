@@ -151,6 +151,10 @@ class ExecutionNode:
             return flag
         return self.type is not NodeType.TOOL
 
+    @property
+    def node_id(self) -> str:  # pragma: no cover
+        """Alias for :attr:`id` — both names are accepted everywhere."""
+        return self.id
 
     # -- serialization -----------------------------------------------------
 
