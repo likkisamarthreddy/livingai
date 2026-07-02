@@ -76,7 +76,7 @@ class RedisStore:
         self._client: Any = (
             client
             if client is not None
-            else aioredis.from_url(url, decode_responses=False)  # pragma: no cover
+            else aioredis.from_url(url, decode_responses=False)  # type: ignore[no-untyped-call]  # pragma: no cover
         )
 
     async def close(self) -> None:
