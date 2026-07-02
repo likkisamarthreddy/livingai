@@ -1,0 +1,17 @@
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local databases produced by SQLiteStore
+*.db
+*.sqlite
+*.sqlite3

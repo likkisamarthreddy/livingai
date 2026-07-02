@@ -1,0 +1,63 @@
+version: "3.9"
+
+# Living AI — local development stack
+# Start with:  docker compose up -d
+# Stop with:   docker compose down -v
+
+services:
+
+  # ----------------------------------------------------------------
+  # PostgreSQL — cold checkpoint store
+  # ----------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: livingai
+      POSTGRES_PASSWORD: livingai
+      POSTGRES_DB: livingai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U livingai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------
+  # Redis — hot cache / fast store
+  # ----------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------
+  # Living AI API  (Phase 5 — not yet implemented)
+  # Uncomment once livingai/api/ exists.
+  # ----------------------------------------------------------------
+  # api:
+  #   build: .
+  #   command: uvicorn livingai.api.main:app --host 0.0.0.0 --port 8000 --reload
+  #   environment:
+  #     POSTGRES_DSN: postgresql://livingai:livingai@postgres/livingai
+  #     REDIS_URL: redis://redis:6379
+  #     LAI_API_KEY: dev-secret-change-me
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+volumes:
+  pgdata:
