@@ -2,9 +2,11 @@
 
 **Crash recovery, checkpointing, and replay for AI agents — one runtime that works across LangGraph, CrewAI, and OpenAI Agents.**
 
-[![CI](https://img.shields.io/badge/CI-py3.9–3.12-brightgreen)](.github/workflows/ci.yml)
+[![CI](https://github.com/likkisamarthreddy/livingai/actions/workflows/ci.yml/badge.svg)](https://github.com/likkisamarthreddy/livingai/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/livingai)](https://pypi.org/project/livingai/)
+[![Python versions](https://img.shields.io/pypi/pyversions/livingai)](https://pypi.org/project/livingai/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](#quality)
-[![Types](https://img.shields.io/badge/mypy-strict-blue)](#quality)
+[![mypy strict](https://img.shields.io/badge/mypy-strict-blue)](#quality)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Runtime deps](https://img.shields.io/badge/runtime%20deps-0-blueviolet)](pyproject.toml)
 
