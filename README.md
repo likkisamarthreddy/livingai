@@ -108,8 +108,23 @@ Checkpointing is on the hot path of every agent step, so it has to be fast. It i
 | Compression | **60–99%** | typical agent state (histories, docs) |
 
 Measured on a dev laptop with the **default 50 ms overhead budget**, 50 KB blobs,
-2000 writes — the same configuration you get out of the box. Reproduce with
-`python benchmarks/benchmark.py`.
+2000 writes — the same configuration you get out of the box.
+
+Reproduce all of it yourself. The [`benchmarks/`](benchmarks/README.md) directory
+ships a three-tier suite you can run in one command each:
+
+```bash
+pip install "livingai[redis]" fakeredis
+
+python benchmarks/benchmark_livingai.py        # Big Test — 1 agent, 500 steps, 250 KB
+python benchmarks/prod_test_livingai.py        # Production — 50 agents, SQLite vs Redis
+python benchmarks/hyperscale_test_livingai.py  # Hyperscale — 150 agents, 793 KB payloads
+```
+
+The headline result: under 50 concurrent agents, single-writer SQLite meets the
+50 ms SLA on **~0.4%** of writes (disk lock contention), while swapping to Redis
+takes SLA compliance to **100%** with a **p99 of ~1 ms** — no core code changes.
+See [`benchmarks/README.md`](benchmarks/README.md) for the full analysis.
 
 The overhead budget is enforced *in code*: a checkpoint write that would exceed it
 is dropped and logged as *missed* rather than ever blocking your agent thread.
@@ -130,6 +145,79 @@ Every execution is a DAG of `ExecutionNode` records. The log is never mutated,
 only appended to — so any point in time can be reconstructed deterministically.
 `TOOL` nodes default to **non-idempotent**, which is how recovery knows never to
 re-run side effects. See [docs/concepts.md](docs/concepts.md) for the full model.
+
+### The Dual-Tier Cache
+
+Recovery reads have to be instant, but memory can't grow without bound. So the
+engine keeps checkpoints in two tiers:
+
+- **Tier 1 — Hot cache (RAM).** An in-process LRU cache with per-entry TTL holds
+  the most recent checkpoints. Recovery reads hit it in **microseconds** and it
+  is updated *synchronously* on every write, so the latest state is always
+  available even if the durable write is dropped.
+- **Tier 2 — Cold store (durable).** Any `CheckpointStore` (SQLite by default,
+  Redis or PostgreSQL optional) holds the full append-only history. Reads that
+  miss the hot cache fall back here and re-populate Tier 1.
+
+A read checks Tier 1 first (a hit is ~4 µs), then Tier 2 (~190 µs) — a **~40×**
+speedup for the common case of recovering a run that just crashed.
+
+### The 50 ms SLA Budget
+
+Checkpointing sits on the hot path of every agent step, so it must never stall the
+agent. The engine enforces a hard **overhead budget** (default 50 ms) *in code*:
+
+```python
+try:
+    await asyncio.wait_for(self.store.write(node), timeout=self._budget_seconds)
+except asyncio.TimeoutError:
+    self.metrics.increment("checkpoint.timeout")   # logged as "missed"
+    return False                                   # agent continues, never blocked
+```
+
+If a durable write would exceed the budget, it is **dropped and recorded as
+missed** rather than blocking execution. Because Tier 1 already holds the state,
+recovery is unaffected. This is why swapping a lock-contended SQLite store for
+Redis takes SLA compliance from ~0.4% to 100% under load — the budget protects the
+agent, and a faster backend simply lets more writes land durably.
+
+## Showcase: drop-in LangGraph Redis saver
+
+LangGraph's built-in `SqliteSaver` is **blocking and single-writer**. Replace it
+with a **non-blocking, horizontally-scalable** saver in one line:
+
+```diff
+- from langgraph.checkpoint.sqlite import SqliteSaver
+- saver = SqliteSaver.from_conn_string("agent.db")
++ from showcase.langgraph_redis_saver import LivingAIRedisSaver
++ saver = LivingAIRedisSaver.from_url("redis://localhost:6379")
+
+  graph = builder.compile(checkpointer=saver)
+```
+
+A **runnable** demo (no LangGraph or Redis server needed) shows crash recovery
+skipping a non-idempotent tool call:
+
+```bash
+pip install "livingai[redis]" fakeredis
+python showcase/demo_langgraph_redis.py
+```
+
+See [`showcase/README.md`](showcase/README.md) for the full comparison table.
+
+## Living AI Studio (visual dashboard)
+
+A CLI tells you *what* happened; **Studio shows you** — and lets you rewind. It
+renders every execution as an interactive graph (successes green, failures red,
+side-effect nodes as boxes) with a **"Replay from this node"** button.
+
+```bash
+pip install "livingai[studio]"
+python studio/seed_demo.py
+streamlit run studio/app.py -- --db studio_demo.db
+```
+
+See [`studio/README.md`](studio/README.md).
 
 ## CLI
 
@@ -153,7 +241,7 @@ livingai replay run-1 --db agent.db --mode MOCK_TOOLS
 
 ## Quality
 
-- **108 tests, 100% line coverage** — including crash-simulation and stress tests
+- **128 tests, 100% line coverage** — including crash-simulation and stress tests
   (10k-node graphs, concurrent writers, write contention).
 - **`mypy --strict` clean** across all source files; ships `py.typed`.
 - **CI matrix** on Python 3.9–3.12 with a 100%-coverage gate.
@@ -178,7 +266,9 @@ python benchmarks/benchmark.py         # reproduce the numbers above
 ## Roadmap
 
 Shipped: core data model, checkpoint engine, recovery engine, replay engine, CLI,
-LangGraph / CrewAI / OpenAI adapters, benchmarks, docs, Redis store, PostgreSQL store.
+LangGraph / CrewAI / OpenAI adapters, three-tier benchmark suite, docs, Redis
+store, PostgreSQL store, drop-in LangGraph Redis saver, and the visual Studio
+dashboard.
 
 **Optional backends** — swap the default SQLite store for Redis or PostgreSQL
 with a single import (no core changes required):
@@ -207,7 +297,7 @@ A **Docker Compose** dev stack (Postgres + Redis) ships with the repo:
 docker compose up -d    # starts postgres:5432 + redis:6379
 ```
 
-Next: FastAPI cloud backend (5 endpoints), cloud client (`CloudSync`), web replay dashboard.
+Next: FastAPI cloud backend (5 endpoints), cloud client (`CloudSync`), hosted Studio.
 
 ## Contributing
 

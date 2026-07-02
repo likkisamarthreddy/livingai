@@ -30,6 +30,7 @@ dependencies = []
 [project.optional-dependencies]
 redis    = ["redis>=4.2"]
 postgres = ["asyncpg>=0.28"]
+studio   = ["streamlit>=1.30"]
 dev      = ["pytest>=7", "coverage>=7", "fakeredis", "redis>=4.2", "pytest-asyncio"]
 
 [project.urls]
