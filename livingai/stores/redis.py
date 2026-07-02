@@ -35,7 +35,7 @@ the event loop.
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Any, List, Optional, cast
 
 from ..graph import ExecutionNode
 
@@ -69,12 +69,12 @@ class RedisStore:
         url: str = "redis://localhost:6379",
         *,
         ttl: Optional[int] = None,
-        client: Optional[object] = None,
+        client: Optional[Any] = None,
     ) -> None:
         self._url = url
         self._ttl = ttl
-        self._client: aioredis.Redis = (  # type: ignore[type-arg]
-            client  # type: ignore[assignment]
+        self._client: Any = (
+            client
             if client is not None
             else aioredis.from_url(url, decode_responses=False)  # pragma: no cover
         )
@@ -106,7 +106,11 @@ class RedisStore:
         await pipe.execute()
 
     async def read(self, node_id: str) -> Optional[ExecutionNode]:
-        raw, blob = await self._client.mget(_N + node_id, _C + node_id)
+        result: List[Optional[bytes]] = cast(
+            List[Optional[bytes]],
+            await self._client.mget(_N + node_id, _C + node_id),
+        )
+        raw, blob = result[0], result[1]
         if raw is None:
             return None
         return ExecutionNode.from_json(raw.decode(), checkpoint=blob or None)
@@ -114,15 +118,19 @@ class RedisStore:
     async def list_by_execution(
         self, execution_id: str
     ) -> list[ExecutionNode]:
-        node_ids: list[bytes] = await self._client.zrange(
-            _E + execution_id, 0, -1
+        node_ids: List[bytes] = cast(
+            List[bytes], await self._client.zrange(_E + execution_id, 0, -1)
         )
         if not node_ids:
             return []
         keys = [_N + nid.decode() for nid in node_ids]
         ckpt_keys = [_C + nid.decode() for nid in node_ids]
-        raws = await self._client.mget(*keys)
-        blobs = await self._client.mget(*ckpt_keys)
+        raws: List[Optional[bytes]] = cast(
+            List[Optional[bytes]], await self._client.mget(*keys)
+        )
+        blobs: List[Optional[bytes]] = cast(
+            List[Optional[bytes]], await self._client.mget(*ckpt_keys)
+        )
         nodes = []
         for raw, blob in zip(raws, blobs):
             if raw is None:  # pragma: no cover
@@ -136,13 +144,17 @@ class RedisStore:
         self, execution_id: str
     ) -> Optional[ExecutionNode]:
         """Return the most recent node carrying a checkpoint blob."""
-        node_ids: list[bytes] = await self._client.zrevrange(
-            _E + execution_id, 0, -1
+        node_ids: List[bytes] = cast(
+            List[bytes], await self._client.zrevrange(_E + execution_id, 0, -1)
         )
         for nid in node_ids:
-            blob: Optional[bytes] = await self._client.get(_C + nid.decode())
+            blob: Optional[bytes] = cast(
+                Optional[bytes], await self._client.get(_C + nid.decode())
+            )
             if blob is not None:
-                raw = await self._client.get(_N + nid.decode())
+                raw: Optional[bytes] = cast(
+                    Optional[bytes], await self._client.get(_N + nid.decode())
+                )
                 if raw is None:  # pragma: no cover
                     continue
                 return ExecutionNode.from_json(raw.decode(), checkpoint=blob)

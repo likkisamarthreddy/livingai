@@ -36,7 +36,7 @@ All I/O is async, using the ``asyncpg`` driver.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from ..graph import ExecutionNode
 
@@ -110,13 +110,13 @@ class PostgresStore:
         pool: Optional[object] = None,
     ) -> None:
         self._dsn = dsn
-        self._pool: Optional[asyncpg.Pool] = pool  # type: ignore[type-arg]
+        self._pool: Optional[Any] = pool
 
     async def initialize(self) -> None:  # pragma: no cover
         """Create tables and indices if they don't exist. Call once on startup."""
         if self._pool is None:
             self._pool = await asyncpg.create_pool(self._dsn)
-        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+        async with self._pool.acquire() as conn:
             await conn.execute(_SCHEMA)
 
     async def close(self) -> None:
