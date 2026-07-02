@@ -41,7 +41,7 @@ from typing import Optional
 from ..graph import ExecutionNode
 
 try:
-    import asyncpg  # type: ignore[import-untyped]
+    import asyncpg  # type: ignore[import-not-found,import-untyped]
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "PostgreSQL support requires 'asyncpg'. Install with: pip install livingai[postgres]"

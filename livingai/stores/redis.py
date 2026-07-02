@@ -40,7 +40,7 @@ from typing import Optional
 from ..graph import ExecutionNode
 
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-untyped]
+    import redis.asyncio as aioredis  # type: ignore[import-not-found,import-untyped]
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "Redis support requires 'redis>=4.2'. Install with: pip install livingai[redis]"
