@@ -143,3 +143,21 @@ async def test_isolation_between_executions() -> None:
 async def test_close() -> None:
     store = make_store()
     await store.close()  # should not raise
+
+
+@pytest.mark.asyncio
+async def test_ttl_expire_branches_covered() -> None:
+    """Exercise the pipe.expire code paths by passing ttl=300."""
+    fake = fakeredis_async.FakeRedis(decode_responses=False)
+    store = RedisStore(ttl=300, client=fake)
+    # node without checkpoint — covers expire for node key only
+    node = _node()
+    await store.write(node)
+    got = await store.read(node.id)
+    assert got is not None
+    # node with checkpoint — covers expire for both node and checkpoint keys
+    node2 = _node(checkpoint=b"ckpt")
+    await store.write(node2)
+    got2 = await store.read(node2.id)
+    assert got2 is not None
+    assert got2.checkpoint == b"ckpt"

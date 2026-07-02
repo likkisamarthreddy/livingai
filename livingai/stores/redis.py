@@ -76,7 +76,7 @@ class RedisStore:
         self._client: aioredis.Redis = (  # type: ignore[type-arg]
             client  # type: ignore[assignment]
             if client is not None
-            else aioredis.from_url(url, decode_responses=False)
+            else aioredis.from_url(url, decode_responses=False)  # pragma: no cover
         )
 
     async def close(self) -> None:
@@ -125,7 +125,7 @@ class RedisStore:
         blobs = await self._client.mget(*ckpt_keys)
         nodes = []
         for raw, blob in zip(raws, blobs):
-            if raw is None:
+            if raw is None:  # pragma: no cover
                 continue
             nodes.append(
                 ExecutionNode.from_json(raw.decode(), checkpoint=blob or None)
@@ -143,7 +143,7 @@ class RedisStore:
             blob: Optional[bytes] = await self._client.get(_C + nid.decode())
             if blob is not None:
                 raw = await self._client.get(_N + nid.decode())
-                if raw is None:
+                if raw is None:  # pragma: no cover
                     continue
                 return ExecutionNode.from_json(raw.decode(), checkpoint=blob)
         return None

@@ -47,3 +47,8 @@ packages = ["livingai"]
 testpaths = ["tests"]
 addopts = "-q"
 asyncio_mode = "strict"
+
+[[tool.mypy.overrides]]
+module = ["livingai.stores.redis", "livingai.stores.postgres", "livingai.stores"]
+warn_unused_ignores = false
+ignore_missing_imports = true

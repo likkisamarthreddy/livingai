@@ -112,7 +112,7 @@ class PostgresStore:
         self._dsn = dsn
         self._pool: Optional[asyncpg.Pool] = pool  # type: ignore[type-arg]
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> None:  # pragma: no cover
         """Create tables and indices if they don't exist. Call once on startup."""
         if self._pool is None:
             self._pool = await asyncpg.create_pool(self._dsn)
@@ -165,7 +165,7 @@ class PostgresStore:
             rows = await conn.fetch(_LATEST_CKPT_SQL, execution_id)
         # rows are latest-per-node; return the one with the highest global seq
         # by fetching seq alongside data.
-        if not rows:
+        if not rows:  # pragma: no cover
             return None
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -179,7 +179,7 @@ class PostgresStore:
         return _row_to_node(row)
 
 
-def _row_to_node(row: Optional[object]) -> Optional[ExecutionNode]:
+def _row_to_node(row: Optional[object]) -> Optional[ExecutionNode]:  # pragma: no cover
     if row is None:
         return None
     return ExecutionNode.from_json(

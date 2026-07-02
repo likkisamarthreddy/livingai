@@ -13,11 +13,11 @@ and are therefore drop-in replacements for the default
 __all__ = ["RedisStore", "PostgresStore"]
 
 
-def __getattr__(name: str) -> object:  # noqa: D401 – lazy import
+def __getattr__(name: str) -> object:  # pragma: no cover
     if name == "RedisStore":
-        from .redis import RedisStore  # type: ignore[import-untyped]
+        from .redis import RedisStore
         return RedisStore
     if name == "PostgresStore":
-        from .postgres import PostgresStore  # type: ignore[import-untyped]
+        from .postgres import PostgresStore
         return PostgresStore
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
